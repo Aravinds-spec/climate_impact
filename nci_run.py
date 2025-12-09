@@ -202,7 +202,7 @@ if uploaded_file is not None:
             names='Status', 
             title='Overall Area Distribution: Rejected vs. Accepted',
             color='Status',
-            color_discrete_map={'REJECTED AREA': 'red', 'ACCEPTED AREA': 'green'}
+            color_discrete_map={'REJECTED AREA': 'red', 'ACCEPTED AREA': 'blue'}
         )
         st.plotly_chart(fig_overall, use_container_width=True)
         st.markdown("---")
@@ -228,7 +228,7 @@ if uploaded_file is not None:
                 color='Status_Label',
                 title='Area (Ha) Rejected vs. Accepted by Biome',
                 hover_name='District',
-                color_discrete_map={'REJECTED (NCI < Threshold)': 'red', 'ACCEPTED (NCI >= Threshold)': 'green'}
+                color_discrete_map={'REJECTED (NCI < Threshold)': 'orange', 'ACCEPTED (NCI >= Threshold)': 'blue'}
             )
             fig_biome_area.update_layout(xaxis={'categoryorder': 'total descending'}, yaxis_title="Total Area (Ha)")
             st.plotly_chart(fig_biome_area, use_container_width=True)
@@ -260,8 +260,8 @@ if uploaded_file is not None:
                 title='Record Count Rejected vs. Accepted by State',
                 hover_name='District',
                 color_discrete_map={
-                    'REJECTED (NCI < Threshold)': 'red', 
-                    'ACCEPTED (NCI >= Threshold)': 'green'
+                    'REJECTED (NCI < Threshold)': 'orange', 
+                    'ACCEPTED (NCI >= Threshold)': 'blue'
                 }
             )
             fig_state_count.update_layout(
