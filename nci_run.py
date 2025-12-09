@@ -278,7 +278,7 @@ if uploaded_file is not None:
         # 4. DATA LOADED SUCCESSFULLY (Last Requirement)
         st.header("4. Data Loaded Successfully")
         st.success(f"Successfully loaded and processed {len(df)} records from the uploaded file.")
-        st.dataframe(df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']].head(10), use_container_width=True)
+        st.dataframe(df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
         
     else:
         st.warning("Please check your uploaded CSV file. It might be empty, formatted incorrectly, or missing key columns.")
