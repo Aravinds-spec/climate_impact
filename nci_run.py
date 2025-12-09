@@ -163,7 +163,7 @@ def get_grouped_status_summary(data_df, group_col):
 st.set_page_config(layout="wide", page_title="NCI Rejection Analysis Dashboard", initial_sidebar_state="expanded")
 
 st.title("🔴 NCI Rejection Analysis Dashboard")
-st.markdown("### Focused on Negative Climate Impact (NCI < Threshold) Status")
+# st.markdown("### Focused on Negative Climate Impact (NCI < Biome Threshold) Status")
 
 # File Uploader Section
 st.sidebar.header("Data Upload")
