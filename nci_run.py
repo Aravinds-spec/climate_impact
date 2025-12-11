@@ -436,7 +436,7 @@ if is_nci_data_ready:
         st.plotly_chart(fig_biome_area, use_container_width=True)
     st.markdown("---")
     
-    # 4. DATA LOADED SUCCESSFULLY (Last Requirement)
+    # 4. DATA ARCHIVE
     st.header("Data Loaded Successfully")
     st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded file.")
     st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
