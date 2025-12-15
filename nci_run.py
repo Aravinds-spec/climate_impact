@@ -634,7 +634,7 @@ elif nci_uploaded_file is None:
 
 if is_nci_data_ready:
     # 3. DATA LOADED SUCCESSFULLY
-    st.header("NCI Data")
+    st.header("5. NCI Data")
     st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded NCI file.")
     st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
     st.markdown("---")
