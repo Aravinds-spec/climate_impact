@@ -624,12 +624,6 @@ if is_nci_data_ready and is_ndvi_data_ready:
             st.warning(f"No records found with NCI Status: **{selected_nci_status}** in the filtered list.")
         else:
             st.warning("No field records found after merging NCI and NDVI data.")
-     
-    # 3. DATA LOADED SUCCESSFULLY
-    st.header("NCI Data")
-    st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded NCI file.")
-    st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
-    st.markdown("---")
 
 
 elif nci_uploaded_file is not None and ndvi_uploaded_file is None:
@@ -637,3 +631,10 @@ elif nci_uploaded_file is not None and ndvi_uploaded_file is None:
     
 elif nci_uploaded_file is None:
     st.info("Please upload your NCI/Area data file using the panel on the left sidebar to start the analysis.")
+
+if is_nci_data_ready:
+    # 3. DATA LOADED SUCCESSFULLY
+    st.header("NCI Data")
+    st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded NCI file.")
+    st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
+    st.markdown("---")
