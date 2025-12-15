@@ -16,24 +16,39 @@ BIOME_THRESHOLDS = {
 
 # --- Data Preparation Functions for NCI Data (File 1) ---
 
+# --- NEW FUNCTION: Load Default Data from GitHub ---
 @st.cache_data
-def load_nci_data(uploaded_file):
-    """Loads and preprocesses the NCI DataFrame."""
-    if uploaded_file is None:
-        return pd.DataFrame()
-        
+def load_default_data(url):
+    """Loads a DataFrame from a public URL (GitHub raw link)."""
     try:
-        df = pd.read_csv(uploaded_file)
+        # Assuming the default data is CSV format
+        return pd.read_csv(url)
     except Exception as e:
-        if hasattr(uploaded_file, 'getvalue'):
-            try:
-                # Attempt to read with a custom separator if standard CSV fails
-                df = pd.read_csv(io.StringIO(uploaded_file.getvalue().decode('utf-8')), sep='|')
-            except Exception:
-                st.error("NCI File: Failed to read as CSV or custom-separated format.")
+        st.error(f"Error loading default data from GitHub: {e}")
+        return pd.DataFrame()
+
+@st.cache_data
+def load_nci_data(file_source):
+    """Loads and preprocesses the NCI DataFrame, accepting either an uploaded file or a path/buffer."""
+    if file_source is None or isinstance(file_source, pd.DataFrame):
+        # If it's a DataFrame already (from default load), use it directly
+        df = file_source.copy()
+    else:
+        # Handle uploaded file logic (as before)
+        try:
+            df = pd.read_csv(file_source)
+        except Exception as e:
+            if hasattr(file_source, 'getvalue'):
+                try:
+                    df = pd.read_csv(io.StringIO(file_source.getvalue().decode('utf-8')), sep='|')
+                except Exception:
+                    st.error("NCI File: Failed to read as CSV or custom-separated format.")
+                    return pd.DataFrame()
+            else:
                 return pd.DataFrame()
-        else:
-            return pd.DataFrame()
+
+    if df.empty:
+        return pd.DataFrame()
 
     # --- CRITICAL: Column Assignment based on Sample Data ---
     numerical_cols = df.select_dtypes(include=np.number).columns
@@ -70,7 +85,7 @@ def load_nci_data(uploaded_file):
 
     return df.copy()
 
-# --- Summary and Plotting Functions for NCI Data ---
+# --- Rest of the NCI Summary Functions (get_overall_rejection_summary, get_grouped_status_summary) remain the same ---
 
 def get_overall_rejection_summary(data_df):
     """Calculates the overall summary focused on NCI Rejection, using area for the rejection rate."""
@@ -80,12 +95,10 @@ def get_overall_rejection_summary(data_df):
     total_records = len(data_df)
     total_rejected = len(rejected_df)
     
-    # --- Robust Area Calculation ---
     total_area_rejected = round(rejected_df['Area_Ha'].sum(), 2) if not rejected_df.empty else 0.0
     total_area_accepted = round(accepted_df['Area_Ha'].sum(), 2) if not accepted_df.empty else 0.0
     total_farm_area = round(data_df['Area_Ha'].sum(), 2)
     
-    # --- Area-Based Rejection Rate Calculation ---
     area_rejection_rate = 0
     if total_farm_area > 0:
         area_rejection_rate = round((total_area_rejected / total_farm_area) * 100, 2)
@@ -142,19 +155,29 @@ def get_grouped_status_summary(data_df, group_col):
     return summary[['Total_Records', 'Total_Area_Ha', 'Rejected_Area_Ha', 
                     'Accepted_Area_Ha', 'Area_Rejection_Rate_%']].sort_values(by='Rejected_Area_Ha', ascending=False)
 
+
 # --- Data Preparation Functions for NDVI Data (File 2) ---
+# --- For simplicity, the NDVI loading function will also be modified to accept a default URL ---
 
 @st.cache_data
-def load_ndvi_data(uploaded_file):
-    """Loads and preprocesses the NDVI DataFrame."""
-    if uploaded_file is None:
-        return pd.DataFrame()
+def load_ndvi_data(file_source):
+    """Loads and preprocesses the NDVI DataFrame, accepting either an uploaded file or a URL."""
+    if file_source is None:
+        return pd.DataFrame(), []
     
-    try:
-        df_d = pd.read_csv(uploaded_file)
-    except Exception as e:
-        st.error(f"NDVI File: Failed to read CSV. Error: {e}")
-        return pd.DataFrame()
+    if isinstance(file_source, str): # Assume it's a URL for default data
+         try:
+            df_d = pd.read_csv(file_source)
+         except Exception as e:
+            st.error(f"Error loading default NDVI data: {e}")
+            return pd.DataFrame(), []
+    else: # Assume it's an uploaded file
+        try:
+            df_d = pd.read_csv(file_source)
+        except Exception as e:
+            st.error(f"NDVI File: Failed to read CSV. Error: {e}")
+            return pd.DataFrame(), []
+
 
     col_lis_ = [col for col in df_d.columns if '20' in col]
     col_mapping = {}
@@ -176,7 +199,7 @@ def load_ndvi_data(uploaded_file):
     # Check for 'kyari_id' as the key column
     if 'kyari_id' not in df_d.columns:
         st.error("NDVI File Error: Missing required primary key column 'kyari_id'.")
-        return pd.DataFrame()
+        return pd.DataFrame(), []
 
     # Apply Savitzky-Golay filter and scaling (your existing logic)
     if col_lis:
@@ -190,8 +213,7 @@ def load_ndvi_data(uploaded_file):
 
     return df_d.copy(), col_lis
 
-# --- Crop Cycle Analysis Functions ---
-# (Using the original logic from the user's second script)
+# --- Rest of the Crop Cycle Analysis Functions (analyze_crop_cycles, process_ndvi_dataframe, plot_crop_cycle_analysis) remain the same ---
 
 def analyze_crop_cycles(row, ndvi_columns, ndvi_start_threshold=0.2, ndvi_end_threshold=None, min_months=2, max_months=12):
     """Analyzes a single row of NDVI time-series data to find valid crop cycles."""
@@ -261,7 +283,6 @@ def analyze_crop_cycles(row, ndvi_columns, ndvi_start_threshold=0.2, ndvi_end_th
 def process_ndvi_dataframe(df, ndvi_cols, ndvi_start_threshold=0.2, ndvi_end_threshold=None):
     """Applies the crop cycle analysis to each row of the DataFrame and aggregates results."""
     
-    # Ensure a copy to avoid SettingWithCopyWarning if not already a copy
     df_copy = df.copy() 
     results = []
     ndvi_over_04_counts = []
@@ -281,7 +302,7 @@ def process_ndvi_dataframe(df, ndvi_cols, ndvi_start_threshold=0.2, ndvi_end_thr
         lambda row: f"{row['Num_Cycles']} Valid, {row['Exception_Cycles_Count']} Exception",
         axis=1
     )
-    df_copy['NDVI_Obs_Over_0.4'] = ndvi_over_04_counts
+    df_copy['NDVI_Obs_Over.4'] = ndvi_over_04_counts
     df_copy['Detailed_Cycles'] = results
     
     return df_copy
@@ -324,7 +345,6 @@ def plot_crop_cycle_analysis(row, ndvi_columns, ndvi_start_threshold=0.2, ndvi_e
         # 4. Add annotation for max NDVI
         if not cycle['is_exception']:
             max_val = cycle['max_ndvi']
-            # Find the index of the max value within the current segment
             max_idx_in_segment = np.argmax(cycle_ndvi)
             max_date = cycle_dates[max_idx_in_segment]
             
@@ -356,40 +376,55 @@ def plot_crop_cycle_analysis(row, ndvi_columns, ndvi_start_threshold=0.2, ndvi_e
 st.set_page_config(layout="wide", page_title="Integrated Farm Analysis Dashboard", initial_sidebar_state="expanded")
 
 st.title("🌱 Integrated Farm Analysis Dashboard")
-st.markdown("### NCI Rejection Status & Crop Cycle Analysis")
+st.markdown("### NCI Rejection Status & NDVI Crop Cycle Analysis")
+
+# Define DEFAULT URLs (Replace these placeholders with your actual raw GitHub URLs)
+DEFAULT_NCI_URL = "https://github.com/Aravinds-spec/climate_impact/blob/main/AP_PAI_Aug_2025_PRR_2_albedo.csv"
+DEFAULT_NDVI_URL = "https://github.com/Aravinds-spec/climate_impact/blob/main/LD_NDVI_2010_2020.csv"
 
 # --- File Uploader Section ---
-st.sidebar.header("Data Uploads")
-nci_uploaded_file = st.sidebar.file_uploader("1. Upload NCI/Area Data CSV (Primary)", type=["csv"])
-ndvi_uploaded_file = st.sidebar.file_uploader("2. Upload NDVI Time Series Data (Secondary)", type=["csv"])
+st.sidebar.header("Data Source Selection")
+
+use_default = st.sidebar.checkbox('Use Default Sample Data', value=True)
+
+if use_default:
+    nci_source = DEFAULT_NCI_URL
+    ndvi_source = DEFAULT_NDVI_URL
+    st.sidebar.info("Loading data from default GitHub URLs.")
+else:
+    nci_uploaded_file = st.sidebar.file_uploader("1. Upload NCI/Area Data CSV (Primary)", type=["csv"])
+    ndvi_uploaded_file = st.sidebar.file_uploader("2. Upload NDVI Time Series Data (Secondary)", type=["csv"])
+    nci_source = nci_uploaded_file
+    ndvi_source = ndvi_uploaded_file
+
 
 # Define thresholds for NDVI analysis
-NDVI_START_THRESHOLD = st.sidebar.slider("Start Threshold", 0.0, 0.5, 0.3, 0.01)
-NDVI_END_THRESHOLD = st.sidebar.slider("End Threshold", 0.0, 0.5, 0.4, 0.01)
+st.sidebar.header("Analysis Parameters")
+NDVI_START_THRESHOLD = st.sidebar.slider("NDVI Start Threshold", 0.0, 0.5, 0.3, 0.01)
+NDVI_END_THRESHOLD = st.sidebar.slider("NDVI End Threshold", 0.0, 0.5, 0.4, 0.01)
 
 # --- Dynamic Threshold for Summary ---
 NDVI_OBS_THRESHOLD = st.sidebar.slider(
-    "Observation Threshold (Filter for Section 3)",
-    min_value=1, max_value=200, value=10, step=1
+    "NDVI History Observation Threshold (Filter for Section 3)",
+    min_value=1, max_value=20, value=10, step=1
 )
 
-if nci_uploaded_file is not None:
-    nci_df = load_nci_data(nci_uploaded_file)
-    nci_df['Primary_Key'] = nci_df['Name'] # Use 'Name' as the common key (based on request)
+# --- Load Data Based on Source Selection ---
+if nci_source is not None:
+    nci_df = load_nci_data(nci_source)
+    nci_df['Primary_Key'] = nci_df['Name']
     is_nci_data_ready = not nci_df.empty
 else:
     nci_df = pd.DataFrame()
     is_nci_data_ready = False
 
-if ndvi_uploaded_file is not None:
-    ndvi_raw_df, ndvi_cols = load_ndvi_data(ndvi_uploaded_file)
+if ndvi_source is not None:
+    ndvi_raw_df, ndvi_cols = load_ndvi_data(ndvi_source)
     
-    # Process the NDVI data with the selected thresholds
     processed_ndvi_df = process_ndvi_dataframe(ndvi_raw_df, ndvi_cols, 
                                                ndvi_start_threshold=NDVI_START_THRESHOLD, 
                                                ndvi_end_threshold=NDVI_END_THRESHOLD)
     
-    # Set 'kyari_id' as the common key for the NDVI data
     processed_ndvi_df['Primary_Key'] = processed_ndvi_df['kyari_id'] 
     
     is_ndvi_data_ready = not processed_ndvi_df.empty and ndvi_cols
@@ -399,7 +434,7 @@ else:
     is_ndvi_data_ready = False
 
 
-# --- Display NCI Analysis ---
+# --- Display NCI Analysis (Sections 1 & 2) ---
 if is_nci_data_ready:
     
     # 1. OVERALL NCI REJECTION SUMMARY
@@ -434,35 +469,27 @@ if is_nci_data_ready:
             y='Area_Ha',
             color='Status_Label',
             title='Area (Ha) Rejected vs. Accepted by Biome',
-            color_discrete_map={'REJECTED (NCI < Threshold)': 'orange', 'ACCEPTED (NCI >= Threshold)': 'blue'}
+            color_discrete_map={'REJECTED (NCI < Threshold)': 'red', 'ACCEPTED (NCI >= Threshold)': 'green'}
         )
         fig_biome_area.update_layout(xaxis={'categoryorder': 'total descending'}, yaxis_title="Total Area (Ha)")
         st.plotly_chart(fig_biome_area, use_container_width=True)
     st.markdown("---")
-    
-    # # 3. DATA LOADED SUCCESSFULLY
-    # st.header("NCI Data")
-    # st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded NCI file.")
-    # st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
-    # st.markdown("---")
 
 
-# --- SECTION 3: Summary of NCI and Farm history (Aggregation FIX applied here) ---
+# --- SECTION 3: Summary of NCI and Farm history ---
 
 if is_nci_data_ready and is_ndvi_data_ready:
     
     st.header("3. Summary of NCI and Farm history")
     
     # --- CRITICAL FIX: Aggregate NDVI data to one row per kyari_id using MEDIAN ---
-    # 1. Aggregate the processed NDVI data to get one median value per farm
-    # Assuming 'Primary_Key' is the correct kyari identifier.
     ndvi_summary_agg = processed_ndvi_df.pivot_table(
         index='Primary_Key',
-        values='NDVI_Obs_Over_0.4',
+        values='NDVI_Obs_Over.4',
         aggfunc='median'
     ).reset_index()
     
-    ndvi_summary_agg.rename(columns={'NDVI_Obs_Over_0.4': 'Median_NDVI_Obs_Over_0.4'}, inplace=True)
+    ndvi_summary_agg.rename(columns={'NDVI_Obs_Over.4': 'Median_NDVI_Obs_Over.4'}, inplace=True)
     # -----------------------------------------------------------------------------
     
     # Merge NCI data with the aggregated NDVI features for summary calculation
@@ -471,14 +498,14 @@ if is_nci_data_ready and is_ndvi_data_ready:
         ndvi_summary_agg, # Use the aggregated data frame
         left_on='Primary_Key', 
         right_on='Primary_Key',
-        how='inner' # Use inner merge to only count farms present in both
+        how='inner' 
     )
     
     # 1. Filter for the farms rejected by NCI
     rejected_nci_df = summary_df[summary_df['is_rejected'] == True]
     
-    # 2. Filter for farms where the MEDIAN NDVI_Obs_Over_0.4 is less than the dynamic threshold
-    rejected_both_df = rejected_nci_df[rejected_nci_df['Median_NDVI_Obs_Over_0.4'] < NDVI_OBS_THRESHOLD]
+    # 2. Filter for farms where the MEDIAN NDVI_Obs_Over.4 is less than the dynamic threshold
+    rejected_both_df = rejected_nci_df[rejected_nci_df['Median_NDVI_Obs_Over.4'] < NDVI_OBS_THRESHOLD]
     
     # 3. Calculate the metrics
     total_farms_rejected_nci = len(rejected_nci_df)
@@ -499,7 +526,7 @@ if is_nci_data_ready and is_ndvi_data_ready:
         total_farms_rejected_both
     )
     
-    # Calculate percentage rejected by both (useful if NCI rejected farms are the universe)
+    # Calculate percentage rejected by both 
     if total_farms_rejected_nci > 0:
         pct_rejected_both = round((total_farms_rejected_both / total_farms_rejected_nci) * 100, 1)
         col_s3.metric(
@@ -513,7 +540,7 @@ if is_nci_data_ready and is_ndvi_data_ready:
         )
     
     st.dataframe(
-        rejected_both_df[['Name', 'Area_Ha', 'BIOME_NAME', 'NCI_Score_Rounded', 'NCI_Threshold', 'Median_NDVI_Obs_Over_0.4']],
+        rejected_both_df[['Name', 'Area_Ha', 'BIOME_NAME', 'NCI_Score_Rounded', 'NCI_Threshold', 'Median_NDVI_Obs_Over.4']],
         use_container_width=True
     )
     st.markdown("---")
@@ -523,23 +550,15 @@ if is_nci_data_ready and is_ndvi_data_ready:
 if is_nci_data_ready and is_ndvi_data_ready:
     st.header("4. Integrated NCI & Vegetation pattern Analysis")
     
-    # 1. Merge the two processed dataframes on the common key (using left merge for detailed analysis)
-    # Note: processed_ndvi_df still contains the multiple rows per kyari_id here! 
-    # This is fine for merging the NDVI columns (ndvi_cols) which are needed for plotting.
+    # Merge NCI data with NDVI features for plotting (keep first instance of NCI field)
     merged_df = pd.merge(
         nci_df, 
-        processed_ndvi_df[['Primary_Key', 'Num_Cycles','Total_Cycles_Summary', 'Exception_Cycles_Count', 'NDVI_Obs_Over_0.4', 'Detailed_Cycles'] + ndvi_cols],
+        processed_ndvi_df[['Primary_Key', 'Num_Cycles','Total_Cycles_Summary', 'Exception_Cycles_Count', 'NDVI_Obs_Over.4', 'Detailed_Cycles'] + ndvi_cols],
         left_on='Primary_Key', 
         right_on='Primary_Key',
         how='left', 
         suffixes=('_NCI', '_NDVI')
-    )
-    
-    # Handle duplicates created by the merge (if one NCI field links to multiple NDVI rows), 
-    # keep the first instance for plotting and detail view.
-    merged_df = merged_df.drop_duplicates(subset=['Primary_Key'], keep='first')
-    
-    merged_df = merged_df.drop(columns=['Primary_Key'], errors='ignore')
+    ).drop_duplicates(subset=['Primary_Key'], keep='first').drop(columns=['Primary_Key'], errors='ignore')
 
     # --- FILTERING STEP ---
     st.subheader("Field-Level Detail Selection")
@@ -586,11 +605,11 @@ if is_nci_data_ready and is_ndvi_data_ready:
         <style>
         /* Target the metric label (the title) */
         [data-testid="stMetricLabel"] > div {
-            font-size: 0.8em; /* 80% of normal size */
+            font-size: 0.8em; 
         }
         /* Target the metric value (the main number) */
         [data-testid="stMetricValue"] {
-            font-size: 1.2em; /* Slightly smaller main value */
+            font-size: 1.2em; 
         }
         </style>
         """, unsafe_allow_html=True)
@@ -601,7 +620,7 @@ if is_nci_data_ready and is_ndvi_data_ready:
         col_d2.metric("NCI Score", f"{selected_row['NCI_Score_Rounded']} (Threshold: {selected_row['NCI_Threshold']})")
         
         col_d3.metric("Total Valid Cycles", selected_row['Total_Cycles_Summary'])
-        col_d4.metric("NDVI Obs > 0.4", safe_int_conversion(selected_row['NDVI_Obs_Over_0.4']))
+        col_d4.metric("NDVI Obs > 0.4", safe_int_conversion(selected_row['NDVI_Obs_Over.4']))
         
         st.markdown("---")
         
@@ -626,15 +645,18 @@ if is_nci_data_ready and is_ndvi_data_ready:
             st.warning("No field records found after merging NCI and NDVI data.")
 
 
-elif nci_uploaded_file is not None and ndvi_uploaded_file is None:
-    st.info("NDVI data not uploaded. Please upload the NDVI file to enable the integrated analysis (Section 3 and 4).")
-    
-elif nci_uploaded_file is None:
-    st.info("Please upload your NCI/Area data file using the panel on the left sidebar to start the analysis.")
+# --- FINAL STATUS MESSAGES AND CLEANUP ---
 
+# Handle cases where files are missing
+if nci_source is None and ndvi_source is None and not use_default:
+    st.info("Please upload your NCI/Area data file using the panel on the left sidebar, or select 'Use Default Sample Data' to start the analysis.")
+elif nci_source is not None and ndvi_source is None and not use_default:
+    st.info("NDVI data not uploaded. Please upload the NDVI file to enable the integrated analysis (Section 3 and 4).")
+
+
+# --- SECTION 5: Data Loaded Successfully (Moved to the end) ---
 if is_nci_data_ready:
-    # 3. DATA LOADED SUCCESSFULLY
-    st.header("5. NCI Data")
-    st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded NCI file.")
+    st.header("5. Data Loaded Successfully")
+    st.success(f"Successfully loaded and processed {len(nci_df)} records from the NCI data source.")
     st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
     st.markdown("---")
