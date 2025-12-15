@@ -356,7 +356,7 @@ def plot_crop_cycle_analysis(row, ndvi_columns, ndvi_start_threshold=0.2, ndvi_e
 st.set_page_config(layout="wide", page_title="Integrated Farm Analysis Dashboard", initial_sidebar_state="expanded")
 
 st.title("🌱 Integrated Farm Analysis Dashboard")
-st.markdown("### NCI Rejection Status & NDVI Crop Cycle Analysis")
+st.markdown("### NCI Rejection Status & Crop Cycle Analysis")
 
 # --- File Uploader Section ---
 st.sidebar.header("Data Uploads")
@@ -441,7 +441,7 @@ if is_nci_data_ready:
     st.markdown("---")
     
     # 3. DATA LOADED SUCCESSFULLY
-    st.header("Data Loaded Successfully (NCI)")
+    st.header("NCI Data")
     st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded NCI file.")
     st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
     st.markdown("---")
