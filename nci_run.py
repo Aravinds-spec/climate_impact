@@ -553,4 +553,4 @@ elif nci_uploaded_file is not None and ndvi_uploaded_file is None:
     st.info("NDVI data not uploaded. Please upload the NDVI file to enable the integrated analysis (Section 4).")
     
 elif nci_uploaded_file is None:
-    st.info("Please upload your NCI/Area data file using the panel on the left sidebar to start the analysis.")1
+    st.info("Please upload your NCI/Area data file using the panel on the left sidebar to start the analysis.")
