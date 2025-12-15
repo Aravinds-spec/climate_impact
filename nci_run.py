@@ -364,13 +364,13 @@ nci_uploaded_file = st.sidebar.file_uploader("1. Upload NCI/Area Data CSV (Prima
 ndvi_uploaded_file = st.sidebar.file_uploader("2. Upload NDVI Time Series Data (Secondary)", type=["csv"])
 
 # Define thresholds for NDVI analysis
-NDVI_START_THRESHOLD = st.sidebar.slider("NDVI Start Threshold", 0.0, 0.5, 0.3, 0.01)
-NDVI_END_THRESHOLD = st.sidebar.slider("NDVI End Threshold", 0.0, 0.5, 0.4, 0.01)
+NDVI_START_THRESHOLD = st.sidebar.slider("Start Threshold", 0.0, 0.5, 0.3, 0.01)
+NDVI_END_THRESHOLD = st.sidebar.slider("End Threshold", 0.0, 0.5, 0.4, 0.01)
 
 # --- Dynamic Threshold for Summary ---
 NDVI_OBS_THRESHOLD = st.sidebar.slider(
-    "NDVI History Observation Threshold (Filter for Section 3)",
-    min_value=1, max_value=20, value=10, step=1
+    "Observation Threshold (Filter for Section 3)",
+    min_value=1, max_value=200, value=10, step=1
 )
 
 if nci_uploaded_file is not None:
