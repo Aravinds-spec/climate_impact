@@ -14,7 +14,6 @@ BIOME_THRESHOLDS = {
     'Deserts & Xeric Shrublands': 39.5
 }
 
-
 # --- Data Preparation Functions for NCI Data (File 1) ---
 
 @st.cache_data
@@ -430,16 +429,20 @@ if is_nci_data_ready:
             y='Area_Ha',
             color='Status_Label',
             title='Area (Ha) Rejected vs. Accepted by Biome',
-            color_discrete_map={'REJECTED (NCI < Threshold)': 'red', 'ACCEPTED (NCI >= Threshold)': 'blue'}
+            color_discrete_map={'REJECTED (NCI < Threshold)': 'red', 'ACCEPTED (NCI >= Threshold)': 'green'}
         )
         fig_biome_area.update_layout(xaxis={'categoryorder': 'total descending'}, yaxis_title="Total Area (Ha)")
         st.plotly_chart(fig_biome_area, use_container_width=True)
     st.markdown("---")
     
-    # 4. DATA ARCHIVE
+    # 4. DATA LOADED SUCCESSFULLY (Last Requirement)
     st.header("Data Loaded Successfully")
     st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded file.")
     st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
+
+# --- Integrated NCI and NDVI Analysis ---
+
+# ... (rest of the code remains the same)
 
 # --- Integrated NCI and NDVI Analysis ---
 
@@ -447,12 +450,6 @@ if is_nci_data_ready and is_ndvi_data_ready:
     st.header("4. Integrated NCI & Vegetation pattern Analysis")
     
     # 1. Merge the two processed dataframes on the common key
-    # nci_df key: 'Name' / 'Primary_Key'
-    # processed_ndvi_df key: 'kyari_id' / 'Primary_Key'
-    
-    # Drop the temporary key column from the NCI data before merge if it was just a copy of 'Name'
-    # We'll use the 'Name' from NCI and 'kyari_id' from NDVI in the final output, so rename NDVI key to match
-    
     merged_df = pd.merge(
         nci_df, 
         processed_ndvi_df[['Primary_Key', 'Num_Cycles','Total_Cycles_Summary', 'Exception_Cycles_Count', 'NDVI_Obs_Over_0.4', 'Detailed_Cycles'] + ndvi_cols],
@@ -465,33 +462,50 @@ if is_nci_data_ready and is_ndvi_data_ready:
     # Drop the temporary 'Primary_Key' column if needed (optional)
     merged_df = merged_df.drop(columns=['Primary_Key'], errors='ignore')
 
+    # --- NEW FILTERING STEP ---
+    st.subheader("Field-Level Detail Selection")
+    
+    col_filter_nci, col_filter_select = st.columns([1, 2])
+    
+    # 2. Status Label Filter (New)
+    nci_status_options = merged_df['Status_Label'].unique().tolist()
+    nci_status_options.insert(0, 'All Statuses') # Add 'All' option
+    
+    selected_nci_status = col_filter_nci.selectbox(
+        "Filter by NCI Status:",
+        nci_status_options
+    )
+    
+    # Apply status filter
+    if selected_nci_status != 'All Statuses':
+        filtered_df = merged_df[merged_df['Status_Label'] == selected_nci_status]
+    else:
+        filtered_df = merged_df.copy()
+    # --- END NEW FILTERING STEP ---
 
-    # 2. Key Selection Box
-    available_keys = merged_df['Name'].dropna().unique()
+
+    # 3. Key Selection Box
+    available_keys = filtered_df['Name'].dropna().unique()
     
     if available_keys.size > 0:
-        selected_key = st.selectbox(
+        # Use the filtered list of keys for the selectbox
+        selected_key = col_filter_select.selectbox(
             "Select Field/Kyari ID for Detailed Analysis:",
             available_keys,
-            index=0 # Default to the first element
+            index=0 # Default to the first element of the filtered list
         )
         
-        # 3. Filter the data for the selected key
-        selected_row = merged_df[merged_df['Name'] == selected_key].iloc[0]
+        # 4. Filter the data for the selected key
+        selected_row = filtered_df[filtered_df['Name'] == selected_key].iloc[0]
         
         st.subheader(f"Farm level historical vegetation pattern analysis for **{selected_key}**")
         
-        # Display Summary Metrics
-        
+        # Display Summary Metrics (Ensure the safe_int_conversion function is defined)
         def safe_int_conversion(value):
-            # Check if the value is NaN from numpy
-            if pd.isna(value):
-                return 0
-            # Check if the value is None
-            if value is None:
+            if pd.isna(value) or value is None:
                 return 0
             return int(value)
-
+            
         st.markdown("""
         <style>
         /* Target the metric label (the title) */
@@ -516,7 +530,7 @@ if is_nci_data_ready and is_ndvi_data_ready:
         
         st.markdown("---")
         
-        # 4. Plot the NDVI Time Series Graph
+        # 5. Plot the NDVI Time Series Graph
         st.subheader("NDVI Crop Cycle Time Series Plot")
         
         # Pass the row, column list, and thresholds to the plotting function
@@ -529,11 +543,14 @@ if is_nci_data_ready and is_ndvi_data_ready:
         st.pyplot(ndvi_fig)
         
     else:
-        st.warning("No records found in common between the NCI and NDVI files. Check that the 'Name' column in the NCI file matches 'kyari_id' in the NDVI file.")
+        if selected_nci_status != 'All Statuses':
+            st.warning(f"No records found with NCI Status: **{selected_nci_status}** in the merged dataset.")
+        else:
+            st.warning("No records found in common between the NCI and NDVI files. Check that the 'Name' column in the NCI file matches 'kyari_id' in the NDVI file.")
 
 
 elif nci_uploaded_file is not None and ndvi_uploaded_file is None:
     st.info("NDVI data not uploaded. Please upload the NDVI file to enable the integrated analysis (Section 4).")
     
 elif nci_uploaded_file is None:
-    st.info("Please upload your NCI/Area data file using the panel on the left sidebar to start the analysis.")
+    st.info("Please upload your NCI/Area data file using the panel on the left sidebar to start the analysis.")1
