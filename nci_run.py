@@ -379,8 +379,8 @@ st.title("🌱 Integrated Farm Analysis Dashboard")
 st.markdown("### NCI Rejection Status & NDVI Crop Cycle Analysis")
 
 # Define DEFAULT URLs (Replace these placeholders with your actual raw GitHub URLs)
-DEFAULT_NCI_URL = "https://github.com/Aravinds-spec/climate_impact/blob/main/AP_PAI_Aug_2025_PRR_2_albedo.csv"
-DEFAULT_NDVI_URL = "https://github.com/Aravinds-spec/climate_impact/blob/main/LD_NDVI_2010_2020.csv"
+DEFAULT_NCI_URL = "AP_PAI_Aug_2025_PRR_2_albedo.csv"
+DEFAULT_NDVI_URL = "LD_NDVI_2010_2020.csv"
 
 # --- File Uploader Section ---
 st.sidebar.header("Data Source Selection")
