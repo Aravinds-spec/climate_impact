@@ -124,7 +124,7 @@ def get_grouped_status_summary(data_df, group_col):
     
     # Ensure all required columns exist before filtering/renaming
     for col in source_cols:
-         if col not in summary.columns:
+        if col not in summary.columns:
             # Add missing column with zeros
             summary[col] = 0
     
@@ -364,9 +364,14 @@ nci_uploaded_file = st.sidebar.file_uploader("1. Upload NCI/Area Data CSV (Prima
 ndvi_uploaded_file = st.sidebar.file_uploader("2. Upload NDVI Time Series Data (Secondary)", type=["csv"])
 
 # Define thresholds for NDVI analysis
-NDVI_START_THRESHOLD = st.sidebar.slider("NDVI Start Threshold", 0.0, 0.5, 0.2, 0.01)
-NDVI_END_THRESHOLD = st.sidebar.slider("NDVI End Threshold", 0.0, 0.5, 0.3, 0.01)
+NDVI_START_THRESHOLD = st.sidebar.slider("NDVI Start Threshold", 0.0, 0.5, 0.3, 0.01)
+NDVI_END_THRESHOLD = st.sidebar.slider("NDVI End Threshold", 0.0, 0.5, 0.4, 0.01)
 
+# --- Dynamic Threshold for Summary ---
+NDVI_OBS_THRESHOLD = st.sidebar.slider(
+    "NDVI History Observation Threshold (Filter for Section 3)",
+    min_value=1, max_value=20, value=10, step=1
+)
 
 if nci_uploaded_file is not None:
     nci_df = load_nci_data(nci_uploaded_file)
@@ -435,41 +440,115 @@ if is_nci_data_ready:
         st.plotly_chart(fig_biome_area, use_container_width=True)
     st.markdown("---")
     
-    # 4. DATA LOADED SUCCESSFULLY (Last Requirement)
-    st.header("Data Loaded Successfully")
-    st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded file.")
+    # 3. DATA LOADED SUCCESSFULLY
+    st.header("Data Loaded Successfully (NCI)")
+    st.success(f"Successfully loaded and processed {len(nci_df)} records from the uploaded NCI file.")
     st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
+    st.markdown("---")
 
-# --- Integrated NCI and NDVI Analysis ---
 
-# ... (rest of the code remains the same)
+# --- SECTION 3: Summary of NCI and Farm history (Aggregation FIX applied here) ---
 
-# --- Integrated NCI and NDVI Analysis ---
+if is_nci_data_ready and is_ndvi_data_ready:
+    
+    st.header("3. Summary of NCI and Farm history")
+    
+    # --- CRITICAL FIX: Aggregate NDVI data to one row per kyari_id using MEDIAN ---
+    # 1. Aggregate the processed NDVI data to get one median value per farm
+    # Assuming 'Primary_Key' is the correct kyari identifier.
+    ndvi_summary_agg = processed_ndvi_df.pivot_table(
+        index='Primary_Key',
+        values='NDVI_Obs_Over_0.4',
+        aggfunc='median'
+    ).reset_index()
+    
+    ndvi_summary_agg.rename(columns={'NDVI_Obs_Over_0.4': 'Median_NDVI_Obs_Over_0.4'}, inplace=True)
+    # -----------------------------------------------------------------------------
+    
+    # Merge NCI data with the aggregated NDVI features for summary calculation
+    summary_df = pd.merge(
+        nci_df, 
+        ndvi_summary_agg, # Use the aggregated data frame
+        left_on='Primary_Key', 
+        right_on='Primary_Key',
+        how='inner' # Use inner merge to only count farms present in both
+    )
+    
+    # 1. Filter for the farms rejected by NCI
+    rejected_nci_df = summary_df[summary_df['is_rejected'] == True]
+    
+    # 2. Filter for farms where the MEDIAN NDVI_Obs_Over_0.4 is less than the dynamic threshold
+    rejected_both_df = rejected_nci_df[rejected_nci_df['Median_NDVI_Obs_Over_0.4'] < NDVI_OBS_THRESHOLD]
+    
+    # 3. Calculate the metrics
+    total_farms_rejected_nci = len(rejected_nci_df)
+    total_farms_rejected_both = len(rejected_both_df)
+    
+    # --- Display Metrics ---
+    st.subheader(f"NCI and Vegetation History Filter (Median NDVI Obs > 0.4 < {NDVI_OBS_THRESHOLD})")
+    
+    col_s1, col_s2, col_s3 = st.columns(3)
+    
+    col_s1.metric(
+        "Total Farms Rejected by NCI Score",
+        total_farms_rejected_nci
+    )
+    
+    col_s2.metric(
+        f"Farms Rejected by NCI **AND** Median NDVI Obs < {NDVI_OBS_THRESHOLD}",
+        total_farms_rejected_both
+    )
+    
+    # Calculate percentage rejected by both (useful if NCI rejected farms are the universe)
+    if total_farms_rejected_nci > 0:
+        pct_rejected_both = round((total_farms_rejected_both / total_farms_rejected_nci) * 100, 1)
+        col_s3.metric(
+            f"% of NCI-Rejected Farms Lacking History (Median < {NDVI_OBS_THRESHOLD} obs)",
+            f"{pct_rejected_both}%"
+        )
+    else:
+        col_s3.metric(
+            f"% of NCI-Rejected Farms Lacking History (Median < {NDVI_OBS_THRESHOLD} obs)",
+            "N/A"
+        )
+    
+    st.dataframe(
+        rejected_both_df[['Name', 'Area_Ha', 'BIOME_NAME', 'NCI_Score_Rounded', 'NCI_Threshold', 'Median_NDVI_Obs_Over_0.4']],
+        use_container_width=True
+    )
+    st.markdown("---")
+    
+# --- SECTION 4: Integrated NCI and NDVI Analysis (Plotting) ---
 
 if is_nci_data_ready and is_ndvi_data_ready:
     st.header("4. Integrated NCI & Vegetation pattern Analysis")
     
-    # 1. Merge the two processed dataframes on the common key
+    # 1. Merge the two processed dataframes on the common key (using left merge for detailed analysis)
+    # Note: processed_ndvi_df still contains the multiple rows per kyari_id here! 
+    # This is fine for merging the NDVI columns (ndvi_cols) which are needed for plotting.
     merged_df = pd.merge(
         nci_df, 
         processed_ndvi_df[['Primary_Key', 'Num_Cycles','Total_Cycles_Summary', 'Exception_Cycles_Count', 'NDVI_Obs_Over_0.4', 'Detailed_Cycles'] + ndvi_cols],
         left_on='Primary_Key', 
         right_on='Primary_Key',
-        how='left',
+        how='left', 
         suffixes=('_NCI', '_NDVI')
     )
     
-    # Drop the temporary 'Primary_Key' column if needed (optional)
+    # Handle duplicates created by the merge (if one NCI field links to multiple NDVI rows), 
+    # keep the first instance for plotting and detail view.
+    merged_df = merged_df.drop_duplicates(subset=['Primary_Key'], keep='first')
+    
     merged_df = merged_df.drop(columns=['Primary_Key'], errors='ignore')
 
-    # --- NEW FILTERING STEP ---
+    # --- FILTERING STEP ---
     st.subheader("Field-Level Detail Selection")
     
     col_filter_nci, col_filter_select = st.columns([1, 2])
     
-    # 2. Status Label Filter (New)
+    # 2. Status Label Filter (Requested Filter)
     nci_status_options = merged_df['Status_Label'].unique().tolist()
-    nci_status_options.insert(0, 'All Statuses') # Add 'All' option
+    nci_status_options.insert(0, 'All Statuses') 
     
     selected_nci_status = col_filter_nci.selectbox(
         "Filter by NCI Status:",
@@ -481,18 +560,16 @@ if is_nci_data_ready and is_ndvi_data_ready:
         filtered_df = merged_df[merged_df['Status_Label'] == selected_nci_status]
     else:
         filtered_df = merged_df.copy()
-    # --- END NEW FILTERING STEP ---
-
-
+    
     # 3. Key Selection Box
     available_keys = filtered_df['Name'].dropna().unique()
     
     if available_keys.size > 0:
-        # Use the filtered list of keys for the selectbox
+        
         selected_key = col_filter_select.selectbox(
             "Select Field/Kyari ID for Detailed Analysis:",
             available_keys,
-            index=0 # Default to the first element of the filtered list
+            index=0 
         )
         
         # 4. Filter the data for the selected key
@@ -500,7 +577,6 @@ if is_nci_data_ready and is_ndvi_data_ready:
         
         st.subheader(f"Farm level historical vegetation pattern analysis for **{selected_key}**")
         
-        # Display Summary Metrics (Ensure the safe_int_conversion function is defined)
         def safe_int_conversion(value):
             if pd.isna(value) or value is None:
                 return 0
@@ -524,7 +600,6 @@ if is_nci_data_ready and is_ndvi_data_ready:
         col_d1.metric("NCI Status", selected_row['Status_Label'])
         col_d2.metric("NCI Score", f"{selected_row['NCI_Score_Rounded']} (Threshold: {selected_row['NCI_Threshold']})")
         
-        # Apply the safe conversion when displaying metrics
         col_d3.metric("Total Valid Cycles", selected_row['Total_Cycles_Summary'])
         col_d4.metric("NDVI Obs > 0.4", safe_int_conversion(selected_row['NDVI_Obs_Over_0.4']))
         
@@ -533,24 +608,26 @@ if is_nci_data_ready and is_ndvi_data_ready:
         # 5. Plot the NDVI Time Series Graph
         st.subheader("NDVI Crop Cycle Time Series Plot")
         
-        # Pass the row, column list, and thresholds to the plotting function
-        ndvi_fig = plot_crop_cycle_analysis(
-            selected_row, 
-            ndvi_cols, 
-            ndvi_start_threshold=NDVI_START_THRESHOLD, 
-            ndvi_end_threshold=NDVI_END_THRESHOLD
-        )
-        st.pyplot(ndvi_fig)
+        if 'Detailed_Cycles' in selected_row:
+            ndvi_fig = plot_crop_cycle_analysis(
+                selected_row, 
+                ndvi_cols, 
+                ndvi_start_threshold=NDVI_START_THRESHOLD, 
+                ndvi_end_threshold=NDVI_END_THRESHOLD
+            )
+            st.pyplot(ndvi_fig)
+        else:
+            st.warning(f"NDVI time series data for key '{selected_key}' is missing or incomplete.")
         
     else:
         if selected_nci_status != 'All Statuses':
-            st.warning(f"No records found with NCI Status: **{selected_nci_status}** in the merged dataset.")
+            st.warning(f"No records found with NCI Status: **{selected_nci_status}** in the filtered list.")
         else:
-            st.warning("No records found in common between the NCI and NDVI files. Check that the 'Name' column in the NCI file matches 'kyari_id' in the NDVI file.")
+            st.warning("No field records found after merging NCI and NDVI data.")
 
 
 elif nci_uploaded_file is not None and ndvi_uploaded_file is None:
-    st.info("NDVI data not uploaded. Please upload the NDVI file to enable the integrated analysis (Section 4).")
+    st.info("NDVI data not uploaded. Please upload the NDVI file to enable the integrated analysis (Section 3 and 4).")
     
 elif nci_uploaded_file is None:
     st.info("Please upload your NCI/Area data file using the panel on the left sidebar to start the analysis.")
