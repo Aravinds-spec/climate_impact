@@ -434,7 +434,7 @@ if is_nci_data_ready:
             y='Area_Ha',
             color='Status_Label',
             title='Area (Ha) Rejected vs. Accepted by Biome',
-            color_discrete_map={'REJECTED (NCI < Threshold)': 'red', 'ACCEPTED (NCI >= Threshold)': 'green'}
+            color_discrete_map={'REJECTED (NCI < Threshold)': 'orange', 'ACCEPTED (NCI >= Threshold)': 'blue'}
         )
         fig_biome_area.update_layout(xaxis={'categoryorder': 'total descending'}, yaxis_title="Total Area (Ha)")
         st.plotly_chart(fig_biome_area, use_container_width=True)
