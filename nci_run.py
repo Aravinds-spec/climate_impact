@@ -377,7 +377,7 @@ st.set_page_config(layout="wide", page_title="Albedo and Pre-project Scenario As
 
 st.title(" Albedo and Pre-project Scenario Assessment Dashboard")
 st.markdown("### NCI Rejection Status & LULC Analysis")
-st.markdown("##### Analysis based on Nature article - Hasler et al. 2024')
+st.markdown("##### Analysis based on Nature article - Hasler et al. 2024")
 
 # Define DEFAULT URLs (Replace these placeholders with your actual raw GitHub URLs)
 DEFAULT_NCI_URL = "AP_PAI_Aug_2025_PRR_2_albedo.csv"
