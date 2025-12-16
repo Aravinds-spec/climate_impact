@@ -376,7 +376,7 @@ def plot_crop_cycle_analysis(row, ndvi_columns, ndvi_start_threshold=0.2, ndvi_e
 st.set_page_config(layout="wide", page_title="Integrated Farm Analysis Dashboard", initial_sidebar_state="expanded")
 
 st.title("🌱 Integrated Farm Analysis Dashboard")
-st.markdown("### NCI Rejection Status & NDVI Crop Cycle Analysis")
+st.markdown("### NCI Rejection Status & Crop Cycle Analysis")
 
 # Define DEFAULT URLs (Replace these placeholders with your actual raw GitHub URLs)
 DEFAULT_NCI_URL = "AP_PAI_Aug_2025_PRR_2_albedo.csv"
@@ -400,12 +400,12 @@ else:
 
 # Define thresholds for NDVI analysis
 st.sidebar.header("Analysis Parameters")
-NDVI_START_THRESHOLD = st.sidebar.slider("NDVI Start Threshold", 0.0, 0.5, 0.3, 0.01)
-NDVI_END_THRESHOLD = st.sidebar.slider("NDVI End Threshold", 0.0, 0.5, 0.4, 0.01)
+NDVI_START_THRESHOLD = st.sidebar.slider("Start Threshold", 0.0, 0.5, 0.3, 0.01)
+NDVI_END_THRESHOLD = st.sidebar.slider("End Threshold", 0.0, 0.5, 0.4, 0.01)
 
 # --- Dynamic Threshold for Summary ---
 NDVI_OBS_THRESHOLD = st.sidebar.slider(
-    "NDVI History Observation Threshold (Filter for Section 3)",
+    "Observation Threshold (Filter for Section 3)",
     min_value=1, max_value=20, value=10, step=1
 )
 
@@ -548,7 +548,7 @@ if is_nci_data_ready and is_ndvi_data_ready:
 # --- SECTION 4: Integrated NCI and NDVI Analysis (Plotting) ---
 
 if is_nci_data_ready and is_ndvi_data_ready:
-    st.header("4. Integrated NCI & Vegetation pattern Analysis")
+    st.header("4. Integrated NCI & Land Cover and Land Use Dynamics")
     
     # Merge NCI data with NDVI features for plotting (keep first instance of NCI field)
     merged_df = pd.merge(
@@ -625,7 +625,7 @@ if is_nci_data_ready and is_ndvi_data_ready:
         st.markdown("---")
         
         # 5. Plot the NDVI Time Series Graph
-        st.subheader("NDVI Crop Cycle Time Series Plot")
+        st.subheader("Crop Cycle Time Series Plot")
         
         if 'Detailed_Cycles' in selected_row:
             ndvi_fig = plot_crop_cycle_analysis(
@@ -656,7 +656,7 @@ elif nci_source is not None and ndvi_source is None and not use_default:
 
 # --- SECTION 5: Data Loaded Successfully (Moved to the end) ---
 if is_nci_data_ready:
-    st.header("5. Data Loaded Successfully")
+    st.header("5. NCI Data")
     st.success(f"Successfully loaded and processed {len(nci_df)} records from the NCI data source.")
     st.dataframe(nci_df[['BIOME_NAME', 'District', 'Name', 'State', 'Area_Ha', 'NCI_Score', 'NCI_Threshold', 'Status_Label']], use_container_width=True)
     st.markdown("---")
