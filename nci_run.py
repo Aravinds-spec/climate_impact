@@ -373,7 +373,7 @@ def plot_crop_cycle_analysis(row, ndvi_columns, ndvi_start_threshold=0.2, ndvi_e
 
 # --- STREAMLIT APP LAYOUT (Unified) ---
 
-st.set_page_config(layout="wide", page_title="Integrated Farm Analysis Dashboard", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="Albedo and Pre-project Scenario Assessment Dashboard", initial_sidebar_state="expanded")
 
 st.title("🌱 Integrated Farm Analysis Dashboard")
 st.markdown("### NCI Rejection Status & Crop Cycle Analysis")
