@@ -74,7 +74,7 @@ def load_nci_data(file_source):
     df['NCI_Threshold'] = df['BIOME_NAME'].apply(
         lambda x: BIOME_THRESHOLDS.get(x, 0)
     )
-
+    df['NCI_Threshold'] = -1*df['NCI_Threshold']
     # 2. Determine rejection status
     df['is_rejected'] = df['NCI_Score'] < df['NCI_Threshold']
     
